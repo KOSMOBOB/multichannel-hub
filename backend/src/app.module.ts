@@ -8,6 +8,8 @@ import { ChannelsModule } from './channels/channels.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { TelegramUserModule } from './telegram-user/telegram-user.module';
 import { WhatsappModule } from './whatsapp/whatsapp.module';
+import { DiscordModule } from './discord/discord.module';
+import { SlackModule } from './slack/slack.module';
 import { WebformsModule } from './webforms/webforms.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { MessagesModule } from './messages/messages.module';
@@ -33,6 +35,8 @@ import { SettingsModule } from './settings/settings.module';
     TelegramModule,
     TelegramUserModule,
     WhatsappModule,
+    DiscordModule,
+    SlackModule,
     WebformsModule,
     WebhooksModule,
     MessagesModule,

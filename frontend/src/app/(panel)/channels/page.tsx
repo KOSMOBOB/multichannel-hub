@@ -14,6 +14,9 @@ export default function ChannelsPage() {
   const [token, setToken] = useState('');
   const [apiId, setApiId] = useState('');
   const [apiHash, setApiHash] = useState('');
+  const [botToken, setBotToken] = useState('');
+  const [signingSecret, setSigningSecret] = useState('');
+  const [appToken, setAppToken] = useState('');
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [waStatus, setWaStatus] = useState<string>('');
   
@@ -39,6 +42,10 @@ export default function ChannelsPage() {
     } else if (type === 'TELEGRAM_USER') {
       // Пользовательский Telegram (QR) хранится как тип TELEGRAM с пометкой mode=userbot
       payload = { name, type: 'TELEGRAM', config: { mode: 'userbot', apiId, apiHash } };
+    } else if (type === 'DISCORD') {
+      payload = { name, type: 'DISCORD', config: { botToken } };
+    } else if (type === 'SLACK') {
+      payload = { name, type: 'SLACK', config: { botToken, signingSecret, appToken } };
     } else {
       payload = { name, type, config: {} };
     }
@@ -47,6 +54,9 @@ export default function ChannelsPage() {
     setToken('');
     setApiId('');
     setApiHash('');
+    setBotToken('');
+    setSigningSecret('');
+    setAppToken('');
     setShowForm(false);
     load();
   };
@@ -150,6 +160,44 @@ export default function ChannelsPage() {
     }
   };
 
+  // Discord
+  const initializeDiscord = async (id: string) => {
+    try {
+      await api.post(`/discord/channels/${id}/initialize`);
+      alert(t('saved'));
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error');
+    }
+  };
+
+  const getDiscordStatus = async (id: string) => {
+    try {
+      const res = await api.get(`/discord/channels/${id}/status`);
+      alert(t('discordStatus') + ': ' + res.data.status);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error');
+    }
+  };
+
+  // Slack
+  const initializeSlack = async (id: string) => {
+    try {
+      await api.post(`/slack/channels/${id}/initialize`);
+      alert(t('saved'));
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error');
+    }
+  };
+
+  const getSlackStatus = async (id: string) => {
+    try {
+      const res = await api.get(`/slack/channels/${id}/status`);
+      alert(t('slackStatus') + ': ' + res.data.status);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error');
+    }
+  };
+
   // Тестирование сообщений
   const openTest = async (channelId: string) => {
     setTestChannelId(channelId);
@@ -200,6 +248,18 @@ export default function ChannelsPage() {
           to: testRecipient,
           text: testText,
         });
+      } else if (channel.type === 'DISCORD') {
+        // Discord
+        await api.post(`/discord/channels/${testChannelId}/send`, {
+          discordChannelId: testRecipient,
+          text: testText,
+        });
+      } else if (channel.type === 'SLACK') {
+        // Slack
+        await api.post(`/slack/channels/${testChannelId}/send`, {
+          slackChannelId: testRecipient,
+          text: testText,
+        });
       }
       alert(t('messageSent'));
       setTestText('');
@@ -242,6 +302,8 @@ export default function ChannelsPage() {
               <option value="TELEGRAM">Telegram (бот / bot)</option>
               <option value="TELEGRAM_USER">Telegram (QR)</option>
               <option value="WHATSAPP">WhatsApp</option>
+              <option value="DISCORD">Discord</option>
+              <option value="SLACK">Slack</option>
               <option value="WEBFORM">Web Form</option>
             </select>
           </div>
@@ -279,6 +341,52 @@ export default function ChannelsPage() {
                 />
               </div>
               <p className="text-xs text-gray-500">{t('tgUserHint')}</p>
+            </div>
+          )}
+          {type === 'DISCORD' && (
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('discordBotToken')}</label>
+              <input
+                value={botToken}
+                onChange={(e) => setBotToken(e.target.value)}
+                className="w-full border rounded px-3 py-2"
+                placeholder="MTk4NjIyNDgzNDcxOTI1MjQ4.G..."
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">{t('discordHint')}</p>
+            </div>
+          )}
+          {type === 'SLACK' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('slackBotToken')}</label>
+                <input
+                  value={botToken}
+                  onChange={(e) => setBotToken(e.target.value)}
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="xoxb-..."
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('slackSigningSecret')}</label>
+                <input
+                  value={signingSecret}
+                  onChange={(e) => setSigningSecret(e.target.value)}
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="abc123..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('slackAppToken')}</label>
+                <input
+                  value={appToken}
+                  onChange={(e) => setAppToken(e.target.value)}
+                  className="w-full border rounded px-3 py-2"
+                  placeholder="xapp-..."
+                />
+              </div>
+              <p className="text-xs text-gray-500">{t('slackHint')}</p>
             </div>
           )}
           <div className="flex gap-2">
@@ -367,7 +475,27 @@ export default function ChannelsPage() {
                       </button>
                     </>
                   )}
-                  {(c.type === 'TELEGRAM' || c.type === 'WHATSAPP') && (
+                  {c.type === 'DISCORD' && (
+                    <>
+                      <button onClick={() => initializeDiscord(c.id)} className="text-brand hover:underline">
+                        {t('initializeDiscord')}
+                      </button>
+                      <button onClick={() => getDiscordStatus(c.id)} className="text-blue-600 hover:underline">
+                        {t('discordStatus')}
+                      </button>
+                    </>
+                  )}
+                  {c.type === 'SLACK' && (
+                    <>
+                      <button onClick={() => initializeSlack(c.id)} className="text-brand hover:underline">
+                        {t('initializeSlack')}
+                      </button>
+                      <button onClick={() => getSlackStatus(c.id)} className="text-blue-600 hover:underline">
+                        {t('slackStatus')}
+                      </button>
+                    </>
+                  )}
+                  {(c.type === 'TELEGRAM' || c.type === 'WHATSAPP' || c.type === 'DISCORD' || c.type === 'SLACK') && (
                     <button onClick={() => openTest(c.id)} className="text-purple-600 hover:underline">
                       {t('testMessages')}
                     </button>

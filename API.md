@@ -90,6 +90,80 @@ Authorization: Bearer <JWT-токен>
 
 ---
 
+## Discord 🔒
+
+### POST `/discord/channels/{id}/initialize`
+Инициализировать Discord-бота для канала. Бот подключится к Discord API с использованием токена из `config.botToken`.
+**Ответ:**
+```json
+{ "success": true, "message": "Discord bot initialized" }
+```
+
+### POST `/discord/channels/{id}/stop`
+Остановить Discord-бота для канала.
+**Ответ:**
+```json
+{ "success": true, "message": "Discord bot stopped" }
+```
+
+### GET `/discord/channels/{id}/status`
+Получить статус Discord-бота.
+**Ответ:**
+```json
+{ "status": "CONNECTED" }
+```
+Возможные статусы: `DISCONNECTED`, `CONNECTING`, `CONNECTED`.
+
+### POST `/discord/channels/{id}/send`
+Отправить сообщение в Discord-канал.
+**Тело запроса:**
+```json
+{ "discordChannelId": "123456789012345678", "text": "Здравствуйте!" }
+```
+**Ответ:**
+```json
+{ "success": true, "message": { "id": "...", "channelId": "...", "direction": "OUTBOUND", "text": "Здравствуйте!", ... } }
+```
+
+---
+
+## Slack 🔒
+
+### POST `/slack/channels/{id}/initialize`
+Инициализировать Slack-бота для канала. Если указаны `appToken` и `signingSecret`, запустится Socket Mode для получения входящих сообщений.
+**Ответ:**
+```json
+{ "success": true, "message": "Slack bot initialized" }
+```
+
+### POST `/slack/channels/{id}/stop`
+Остановить Slack-бота для канала.
+**Ответ:**
+```json
+{ "success": true, "message": "Slack bot stopped" }
+```
+
+### GET `/slack/channels/{id}/status`
+Получить статус Slack-бота.
+**Ответ:**
+```json
+{ "status": "CONNECTED_SOCKET_MODE" }
+```
+Возможные статусы: `DISCONNECTED`, `CONNECTED_API_ONLY`, `CONNECTED_SOCKET_MODE`.
+
+### POST `/slack/channels/{id}/send`
+Отправить сообщение в Slack-канал.
+**Тело запроса:**
+```json
+{ "slackChannelId": "C1234567890", "text": "Здравствуйте!" }
+```
+**Ответ:**
+```json
+{ "success": true, "message": { "id": "...", "channelId": "...", "direction": "OUTBOUND", "text": "Здравствуйте!", ... } }
+```
+
+---
+
 ## WhatsApp 🔒
 
 ### POST `/whatsapp/channels/{id}/initialize`

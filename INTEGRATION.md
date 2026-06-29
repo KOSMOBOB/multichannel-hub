@@ -283,6 +283,183 @@ POST /api/telegram-user/channels/{channelId}/send
 
 ---
 
+## Интеграция Discord через API
+
+### 1. Создание Discord-бота
+
+1. Откройте [Discord Developer Portal](https://discord.com/developers/applications) и создайте приложение (**New Application**).
+2. В разделе **Bot** нажмите **Add Bot**, затем **Reset Token** — скопируйте **Bot Token**.
+3. **Важно:** В **Bot → Privileged Gateway Intents** включите **Message Content Intent**.
+4. В **OAuth2 → URL Generator** выберите scope **bot**, permissions **Send Messages**, **Read Message History**, **View Channels** — скопируйте URL и добавьте бота на сервер.
+
+### 2. Создание канала и подключение бота
+
+```bash
+POST /api/channels
+Authorization: Bearer <token>
+{
+  "name": "Discord Bot",
+  "type": "DISCORD",
+  "config": {
+    "botToken": "MTk4NjIyNDgzNDcxOTI1MjQ4.G..."
+  }
+}
+```
+
+Инициализация бота:
+```bash
+POST /api/discord/channels/{channelId}/initialize
+```
+
+Проверка статуса:
+```bash
+GET /api/discord/channels/{channelId}/status
+# Ответ: { "status": "CONNECTED" }
+```
+
+### 3. Отправка сообщений
+
+```bash
+POST /api/discord/channels/{channelId}/send
+{
+  "discordChannelId": "123456789012345678",
+  "text": "Привет из омниканального шлюза!"
+}
+```
+
+> 💡 **Discord Channel ID** можно скопировать в Discord: ПКМ на канале → Copy ID (требуется Developer Mode в настройках).
+
+### 4. Приём входящих сообщений
+
+Бот автоматически получает сообщения из всех каналов Discord-серверов, куда добавлен. Входящие сообщения:
+- Сохраняются в БД с `direction: INBOUND`, `senderName` (Discord tag), `senderId` (Discord user ID).
+- Триггерят вебхуки с событием `message.received` и полезной нагрузкой:
+  ```json
+  {
+    "event": "message.received",
+    "data": {
+      "message": { "id": "...", "text": "...", "senderName": "User#1234", ... },
+      "channel": { "id": "...", "name": "Discord Bot", "type": "DISCORD" },
+      "platform": "discord"
+    },
+    "timestamp": "2024-06-29T12:00:00.000Z"
+  }
+  ```
+
+### 5. Автоматизация через n8n / Make
+
+**n8n:** Webhook → HTTP Request → Discord send
+```javascript
+// В n8n Webhook ноде получаете данные из шлюза
+const message = $json.data.message;
+const senderName = message.senderName;
+
+// Отправка ответа обратно в Discord
+$http.post('/api/discord/channels/{channelId}/send', {
+  discordChannelId: "123456789012345678",
+  text: `Привет, ${senderName}! Ваше сообщение получено.`
+});
+```
+
+---
+
+## Интеграция Slack через API
+
+### 1. Создание Slack-приложения
+
+1. Откройте [Slack API](https://api.slack.com/apps) → **Create New App → From scratch**.
+2. Задайте имя и workspace.
+3. В **OAuth & Permissions → Bot Token Scopes** добавьте: `chat:write`, `channels:history`, `groups:history`, `im:history`.
+4. Нажмите **Install to Workspace** — скопируйте **Bot User OAuth Token** (начинается с `xoxb-`).
+5. **(Опционально, для получения входящих):**
+   - В **Socket Mode** включите Socket Mode → создайте **App-Level Token** (scope: `connections:write`, начинается с `xapp-`).
+   - В **Basic Information** скопируйте **Signing Secret**.
+
+### 2. Создание канала и подключение бота
+
+Минимальная конфигурация (только отправка):
+```bash
+POST /api/channels
+Authorization: Bearer <token>
+{
+  "name": "Slack Bot",
+  "type": "SLACK",
+  "config": {
+    "botToken": "xoxb-..."
+  }
+}
+```
+
+Полная конфигурация (отправка + приём через Socket Mode):
+```bash
+{
+  "name": "Slack Bot",
+  "type": "SLACK",
+  "config": {
+    "botToken": "xoxb-...",
+    "signingSecret": "abc123...",
+    "appToken": "xapp-..."
+  }
+}
+```
+
+Инициализация бота:
+```bash
+POST /api/slack/channels/{channelId}/initialize
+```
+
+Проверка статуса:
+```bash
+GET /api/slack/channels/{channelId}/status
+# Ответ: { "status": "CONNECTED_SOCKET_MODE" } или "CONNECTED_API_ONLY"
+```
+
+### 3. Отправка сообщений
+
+```bash
+POST /api/slack/channels/{channelId}/send
+{
+  "slackChannelId": "C1234567890",
+  "text": "Привет из омниканального шлюза!"
+}
+```
+
+> 💡 **Slack Channel ID** можно найти в адресной строке браузера: `https://app.slack.com/client/T.../C1234567890`.
+
+### 4. Приём входящих сообщений (Socket Mode)
+
+Если указаны `appToken` и `signingSecret`, бот работает в **Socket Mode** и получает входящие сообщения. Входящие сообщения:
+- Сохраняются в БД с `direction: INBOUND`, `senderId` (Slack user ID).
+- Триггерят вебхуки с событием `message.received` и полезной нагрузкой:
+  ```json
+  {
+    "event": "message.received",
+    "data": {
+      "message": { "id": "...", "text": "...", "senderId": "U1234567890", ... },
+      "channel": { "id": "...", "name": "Slack Bot", "type": "SLACK" },
+      "platform": "slack"
+    },
+    "timestamp": "2024-06-29T12:00:00.000Z"
+  }
+  ```
+
+### 5. Автоматизация через n8n / Make
+
+**n8n:** Webhook → HTTP Request → Slack send
+```javascript
+// В n8n Webhook ноде получаете данные из шлюза
+const message = $json.data.message;
+const senderId = message.senderId;
+
+// Отправка ответа обратно в Slack
+$http.post('/api/slack/channels/{channelId}/send', {
+  slackChannelId: "C1234567890",
+  text: `<@${senderId}> Ваше сообщение получено!`
+});
+```
+
+---
+
 ## Добавление новых каналов (для разработчиков)
 
 Архитектура модульная. Чтобы добавить канал (например, VK или MAX):

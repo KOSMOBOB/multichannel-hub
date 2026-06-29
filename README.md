@@ -9,7 +9,7 @@
 
 ## Возможности
 
-- 📥 **Каналы связи**: Telegram Bot API, Telegram (QR / пользовательский аккаунт через MTProto), WhatsApp (через whatsapp-web.js) и веб-формы (приём заявок с сайта). Модель расширяема.
+- 📥 **Каналы связи**: Telegram Bot API, Telegram (QR / пользовательский аккаунт через MTProto), WhatsApp (через whatsapp-web.js), Discord, Slack и веб-формы (приём заявок с сайта). Модель расширяема.
 - 🔔 **Вебхуки**: пересылка событий во внешние системы с подписью HMAC и повторными попытками.
 - 💬 **История сообщений**: единая лента входящих и исходящих сообщений по всем каналам.
 - 🔐 **Авторизация**: JWT, администратор по умолчанию, смена пароля.
@@ -37,6 +37,8 @@ multichannel-hub/
 │   │   ├── telegram/   # Интеграция с Telegram Bot API
 │   │   ├── telegram-user/ # Telegram через MTProto (QR-логин, GramJS)
 │   │   ├── whatsapp/   # Интеграция с WhatsApp (whatsapp-web.js)
+│   │   ├── discord/    # Интеграция с Discord (discord.js)
+│   │   ├── slack/      # Интеграция с Slack (Bolt SDK, Socket Mode)
 │   │   ├── webforms/   # Приём заявок с веб-форм
 │   │   ├── webhooks/   # Отправка событий во внешние системы
 │   │   ├── messages/   # История сообщений
@@ -169,6 +171,91 @@ POST /api/telegram-user/channels/{channelId}/send
 
 > ⚠️ **Важно:** Сессия сохраняется в БД (в `config.session` канала). Автоматизация пользовательского
 > аккаунта формально противоречит ToS Telegram — избегайте массовых рассылок и спама, чтобы не получить бан.
+
+## Подключение Discord
+
+Discord интеграция работает через **discord.js** — официальную библиотеку для Discord Bot API.
+Бот может получать и отправлять сообщения в каналы Discord-серверов (гильдий), к которым подключён.
+
+### Что нужно заранее:
+
+1. Перейдите на [Discord Developer Portal](https://discord.com/developers/applications).
+2. Нажмите **New Application**, задайте имя бота.
+3. В разделе **Bot** нажмите **Add Bot**, затем **Reset Token** и скопируйте **Bot Token**.
+4. **Важно:** В разделе **Bot → Privileged Gateway Intents** включите:
+   - **Message Content Intent** (чтобы бот мог читать текст сообщений).
+5. В разделе **OAuth2 → URL Generator** выберите scope **bot**, permissions **Send Messages**, **Read Message History**, **View Channels**.
+6. Скопируйте сгенерированный URL и откройте его — добавьте бота на свой сервер.
+
+### Шаги подключения:
+
+1. В админ-панели: **Каналы → Добавить канал → тип Discord**, вставьте **Bot Token**.
+2. Нажмите **«Инициализировать Discord»** — бот подключится к Discord API.
+3. Проверьте статус кнопкой **«Статус Discord»** — должен быть **CONNECTED**.
+4. Входящие сообщения из каналов Discord начнут поступать в раздел **«Сообщения»**.
+
+### Отправка сообщений:
+
+Для отправки сообщения укажите **Discord Channel ID** (получите его в Discord: ПКМ на канале → Copy ID):
+
+```bash
+POST /api/discord/channels/{channelId}/send
+{
+  "discordChannelId": "123456789012345678",
+  "text": "Здравствуйте!"
+}
+```
+
+> 💡 **Подсказка:** Channel ID — это длинное число (например, `1234567890123456789`), которое можно скопировать
+> в Discord при включённом Developer Mode (Настройки → Расширенные → Режим разработчика).
+
+## Подключение Slack
+
+Slack интеграция работает через **@slack/web-api** и **@slack/bolt** — официальные SDK от Slack.
+Поддерживается два режима:
+- **API-only** (только отправка сообщений) — требует только **Bot Token**.
+- **Socket Mode** (получение входящих сообщений) — требует **Bot Token**, **Signing Secret** и **App Token**.
+
+### Что нужно заранее:
+
+1. Перейдите на [Slack API](https://api.slack.com/apps) и нажмите **Create New App → From scratch**.
+2. Задайте имя приложения и выберите workspace.
+3. В разделе **OAuth & Permissions → Bot Token Scopes** добавьте:
+   - `chat:write` (отправка сообщений)
+   - `channels:history` (чтение истории каналов)
+   - `groups:history` (чтение истории приватных каналов)
+   - `im:history` (чтение личных сообщений)
+4. Нажмите **Install to Workspace**, подтвердите — скопируйте **Bot User OAuth Token** (начинается с `xoxb-`).
+5. **(Опционально, для Socket Mode):**
+   - В разделе **Socket Mode** включите Socket Mode.
+   - Создайте **App-Level Token** (scope: `connections:write`) — скопируйте токен (начинается с `xapp-`).
+   - В разделе **Basic Information** скопируйте **Signing Secret**.
+
+### Шаги подключения:
+
+1. В админ-панели: **Каналы → Добавить канал → тип Slack**.
+2. Вставьте **Bot User OAuth Token** (обязательно).
+3. **(Опционально)** Вставьте **Signing Secret** и **App-Level Token** для получения входящих сообщений.
+4. Нажмите **«Инициализировать Slack»** — бот подключится к Slack API.
+5. Проверьте статус кнопкой **«Статус Slack»**:
+   - **CONNECTED_SOCKET_MODE** — полная поддержка (отправка + приём).
+   - **CONNECTED_API_ONLY** — только отправка сообщений.
+6. Пригласите бота в нужные каналы командой `/invite @ИмяБота`.
+
+### Отправка сообщений:
+
+Для отправки сообщения укажите **Slack Channel ID** (например, `C1234567890`) или имя канала (`#general`):
+
+```bash
+POST /api/slack/channels/{channelId}/send
+{
+  "slackChannelId": "C1234567890",
+  "text": "Здравствуйте!"
+}
+```
+
+> 💡 **Подсказка:** Channel ID можно найти в Slack: откройте канал → в адресной строке браузера последний сегмент
+> после `/` — это Channel ID (например, `https://app.slack.com/client/T.../C1234567890`).
 
 ## Приём заявок с веб-формы
 

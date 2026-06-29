@@ -49,6 +49,8 @@ enum ChannelType {
   TELEGRAM
   WEBFORM
   WHATSAPP
+  DISCORD
+  SLACK
   VK
   MAX
   INSTAGRAM
