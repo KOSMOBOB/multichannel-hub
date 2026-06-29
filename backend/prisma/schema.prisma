@@ -1,0 +1,111 @@
+// Prisma-схема омниканального шлюза
+// Описывает таблицы: users, channels, messages, webhooks, settings
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Пользователи админ-панели
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String // bcrypt-хеш
+  name      String?
+  role      Role     @default(ADMIN)
+  language  String   @default("ru") // язык интерфейса: ru | en | es
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+}
+
+// Каналы связи (Telegram-боты, веб-формы и т.д.)
+model Channel {
+  id        String        @id @default(uuid())
+  name      String // понятное имя канала
+  type      ChannelType // тип канала
+  config    Json // конфигурация канала (например, токен Telegram-бота)
+  isActive  Boolean       @default(true) @map("is_active")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  messages Message[]
+
+  @@map("channels")
+}
+
+// Типы каналов — модель расширяема для будущих каналов (WhatsApp, VK, MAX и т.д.)
+enum ChannelType {
+  TELEGRAM
+  WEBFORM
+  WHATSAPP
+  VK
+  MAX
+  INSTAGRAM
+}
+
+// Входящие/исходящие сообщения
+model Message {
+  id          String        @id @default(uuid())
+  channelId   String        @map("channel_id")
+  channel     Channel       @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  direction   Direction     @default(INBOUND)
+  externalId  String?       @map("external_id") // ID сообщения во внешней системе
+  senderName  String?       @map("sender_name")
+  senderId    String?       @map("sender_id") // внешний ID отправителя (chat_id Telegram и т.п.)
+  text        String?
+  payload     Json? // полная нагрузка (например, исходный апдейт Telegram)
+  status      MessageStatus @default(RECEIVED)
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@index([channelId])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+enum Direction {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  RECEIVED
+  PROCESSED
+  FORWARDED
+  FAILED
+}
+
+// Вебхуки для отправки данных во внешние системы (CRM, n8n, Make, Bitrix24)
+model Webhook {
+  id        String   @id @default(uuid())
+  name      String
+  url       String // целевой URL
+  secret    String? // секрет для подписи запросов
+  events    String[] // на какие события реагирует: message.received и т.д.
+  headers   Json? // дополнительные HTTP-заголовки
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("webhooks")
+}
+
+// Глобальные настройки системы (ключ-значение)
+model Setting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
