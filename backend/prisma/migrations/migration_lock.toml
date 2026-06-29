@@ -1,0 +1,2 @@
+# Файл блокировки миграций Prisma
+provider = "postgresql"

@@ -1,0 +1,29 @@
+# Зависимости
+node_modules/
+**/node_modules/
+
+# Сборки
+dist/
+.next/
+**/dist/
+**/.next/
+
+# Переменные окружения
+.env
+**/.env
+!.env.example
+!**/.env.example
+
+# Prisma
+backend/prisma/*.db
+
+# WhatsApp сессии
+whatsapp-sessions/
+**/whatsapp-sessions/
+
+# Логи
+*.log
+npm-debug.log*
+
+# Системные
+.DS_Store
