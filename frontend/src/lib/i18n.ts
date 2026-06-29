@@ -88,6 +88,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     slackHint: 'Создайте приложение на https://api.slack.com/apps, добавьте Bot Token Scopes: chat:write, channels:history, groups:history, im:history',
     slackStatus: 'Статус Slack',
     initializeSlack: 'Инициализировать Slack',
+    vkAccessToken: 'Access Token ВКонтакте',
+    vkHint: 'Получите токен личного аккаунта ВК: vk.com/dev → Создать приложение → Настройки → Сервисный ключ доступа. Права: messages, offline',
+    vkStatus: 'Статус VK',
+    initializeVK: 'Инициализировать VK',
   },
   en: {
     appName: 'Multichannel Hub',
@@ -175,6 +179,10 @@ export const translations: Record<Lang, Record<string, string>> = {
     slackHint: 'Create an app at https://api.slack.com/apps, add Bot Token Scopes: chat:write, channels:history, groups:history, im:history',
     slackStatus: 'Slack Status',
     initializeSlack: 'Initialize Slack',
+    vkAccessToken: 'VKontakte Access Token',
+    vkHint: 'Get personal account token from VK: vk.com/dev → Create Application → Settings → Service Access Key. Permissions: messages, offline',
+    vkStatus: 'VK Status',
+    initializeVK: 'Initialize VK',
   },
   es: {
     appName: 'Hub Multicanal',
@@ -262,5 +270,9 @@ export const translations: Record<Lang, Record<string, string>> = {
     slackHint: 'Crea una app en https://api.slack.com/apps, añade Bot Token Scopes: chat:write, channels:history, groups:history, im:history',
     slackStatus: 'Estado de Slack',
     initializeSlack: 'Inicializar Slack',
+    vkAccessToken: 'Token de Acceso de VKontakte',
+    vkHint: 'Obtén el token de cuenta personal de VK: vk.com/dev → Crear Aplicación → Ajustes → Clave de acceso de servicio. Permisos: messages, offline',
+    vkStatus: 'Estado de VK',
+    initializeVK: 'Inicializar VK',
   },
 };

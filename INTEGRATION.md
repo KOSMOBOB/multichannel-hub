@@ -460,9 +460,113 @@ $http.post('/api/slack/channels/{channelId}/send', {
 
 ---
 
+## Интеграция VK (ВКонтакте) через API
+
+### 1. Получение Access Token ВКонтакте
+
+1. Перейдите на [vk.com/dev](https://vk.com/dev).
+2. Создайте **Standalone-приложение**.
+3. Получите **Access Token** личного аккаунта с правами:
+   - **messages** (доступ к сообщениям)
+   - **offline** (бессрочный токен)
+4. Токен выглядит примерно так: `vk1.a.AbCdEf1234567890...`
+
+> ⚠️ **Важно:** Используйте токен **личного аккаунта** (User Token), а не группы (Group Token).
+> User Token позволяет отправлять и получать личные сообщения от имени вашего аккаунта.
+
+### 2. Создание канала и подключение
+
+Создание VK-канала:
+```bash
+POST /api/channels
+Authorization: Bearer <token>
+{
+  "name": "VK Personal",
+  "type": "VK",
+  "config": {
+    "accessToken": "vk1.a.AbCdEf..."
+  }
+}
+```
+
+Инициализация клиента (запуск User Long Poll):
+```bash
+POST /api/vk/channels/{channelId}/initialize
+```
+
+Проверка статуса:
+```bash
+GET /api/vk/channels/{channelId}/status
+# Ответ: { "status": "CONNECTED" }
+```
+
+### 3. Отправка сообщений
+
+```bash
+POST /api/vk/channels/{channelId}/send
+{
+  "userId": 123456789,
+  "text": "Привет из омниканального шлюза!"
+}
+```
+
+> 💡 **VK User ID** можно узнать через профиль ВК или методом `users.get` VK API.
+
+### 4. Приём входящих сообщений (User Long Poll)
+
+VK-клиент автоматически получает входящие личные сообщения через **User Long Poll**. Входящие сообщения:
+- Сохраняются в БД с `direction: INBOUND`, `senderId` (VK user ID), `senderName` (VK User {id}).
+- Триггерят вебхуки с событием `message.received` и полезной нагрузкой:
+  ```json
+  {
+    "event": "message.received",
+    "data": {
+      "message": {
+        "id": "...",
+        "text": "...",
+        "senderId": "123456789",
+        "senderName": "VK User 123456789",
+        "payload": {
+          "conversationMessageId": 123,
+          "peerId": 123456789,
+          "fromId": 123456789,
+          "date": 1719662400,
+          "attachments": []
+        },
+        ...
+      },
+      "channel": { "id": "...", "name": "VK Personal", "type": "VK" },
+      "platform": "vk"
+    },
+    "timestamp": "2024-06-29T12:00:00.000Z"
+  }
+  ```
+
+### 5. Автоматизация через n8n / Make
+
+**n8n:** Webhook → HTTP Request → VK send
+```javascript
+// В n8n Webhook ноде получаете данные из шлюза
+const message = $json.data.message;
+const senderId = parseInt(message.senderId);
+
+// Отправка ответа обратно пользователю ВК
+$http.post('/api/vk/channels/{channelId}/send', {
+  userId: senderId,
+  text: `Ваше сообщение "${message.text}" получено!`
+});
+```
+
+**Make (Integromat):** Custom Webhook → HTTP Module → VK send
+1. Настройте **Custom Webhook** для получения события `message.received`.
+2. Используйте **HTTP module** с методом `POST` на `/api/vk/channels/{channelId}/send`.
+3. Отправьте `userId` и `text` в теле запроса.
+
+---
+
 ## Добавление новых каналов (для разработчиков)
 
-Архитектура модульная. Чтобы добавить канал (например, VK или MAX):
+Архитектура модульная. Чтобы добавить канал (например, Instagram или MAX):
 
 1. Добавьте значение в enum `ChannelType` в `backend/prisma/schema.prisma` и создайте миграцию.
 2. Создайте новый модуль в `backend/src/<channel>/` по образцу `telegram/` или `whatsapp/`.

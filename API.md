@@ -164,6 +164,45 @@ Authorization: Bearer <JWT-токен>
 
 ---
 
+## VK (ВКонтакте) 🔒
+
+### POST `/vk/channels/{id}/initialize`
+Инициализировать VK-клиент для канала. Запустит User Long Poll для получения входящих личных сообщений.
+**Ответ:**
+```json
+{ "status": "CONNECTED", "message": "VK client connected successfully" }
+```
+
+### DELETE `/vk/channels/{id}/stop`
+Остановить VK-клиент для канала.
+**Ответ:**
+```json
+{ "status": "DISCONNECTED", "message": "VK client stopped" }
+```
+
+### GET `/vk/channels/{id}/status`
+Получить статус VK-клиента.
+**Ответ:**
+```json
+{ "status": "CONNECTED" }
+```
+Возможные статусы: `DISCONNECTED`, `CONNECTING`, `CONNECTED`.
+
+### POST `/vk/channels/{id}/send`
+Отправить личное сообщение пользователю ВКонтакте.
+**Тело запроса:**
+```json
+{ "userId": 123456789, "text": "Привет!" }
+```
+`userId` — числовой ID пользователя ВКонтакте.
+
+**Ответ:**
+```json
+{ "messageId": 987654321 }
+```
+
+---
+
 ## WhatsApp 🔒
 
 ### POST `/whatsapp/channels/{id}/initialize`

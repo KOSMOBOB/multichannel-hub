@@ -17,6 +17,7 @@ export default function ChannelsPage() {
   const [botToken, setBotToken] = useState('');
   const [signingSecret, setSigningSecret] = useState('');
   const [appToken, setAppToken] = useState('');
+  const [vkAccessToken, setVkAccessToken] = useState('');
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [waStatus, setWaStatus] = useState<string>('');
   
@@ -46,6 +47,8 @@ export default function ChannelsPage() {
       payload = { name, type: 'DISCORD', config: { botToken } };
     } else if (type === 'SLACK') {
       payload = { name, type: 'SLACK', config: { botToken, signingSecret, appToken } };
+    } else if (type === 'VK') {
+      payload = { name, type: 'VK', config: { accessToken: vkAccessToken } };
     } else {
       payload = { name, type, config: {} };
     }
@@ -57,6 +60,7 @@ export default function ChannelsPage() {
     setBotToken('');
     setSigningSecret('');
     setAppToken('');
+    setVkAccessToken('');
     setShowForm(false);
     load();
   };
@@ -198,6 +202,25 @@ export default function ChannelsPage() {
     }
   };
 
+  // VK
+  const initializeVK = async (id: string) => {
+    try {
+      await api.post(`/vk/channels/${id}/initialize`);
+      alert(t('saved'));
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error');
+    }
+  };
+
+  const getVKStatus = async (id: string) => {
+    try {
+      const res = await api.get(`/vk/channels/${id}/status`);
+      alert(t('vkStatus') + ': ' + res.data.status);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error');
+    }
+  };
+
   // Тестирование сообщений
   const openTest = async (channelId: string) => {
     setTestChannelId(channelId);
@@ -260,6 +283,12 @@ export default function ChannelsPage() {
           slackChannelId: testRecipient,
           text: testText,
         });
+      } else if (channel.type === 'VK') {
+        // VK
+        await api.post(`/vk/channels/${testChannelId}/send`, {
+          userId: parseInt(testRecipient),
+          text: testText,
+        });
       }
       alert(t('messageSent'));
       setTestText('');
@@ -304,6 +333,7 @@ export default function ChannelsPage() {
               <option value="WHATSAPP">WhatsApp</option>
               <option value="DISCORD">Discord</option>
               <option value="SLACK">Slack</option>
+              <option value="VK">VK (ВКонтакте)</option>
               <option value="WEBFORM">Web Form</option>
             </select>
           </div>
@@ -387,6 +417,19 @@ export default function ChannelsPage() {
                 />
               </div>
               <p className="text-xs text-gray-500">{t('slackHint')}</p>
+            </div>
+          )}
+          {type === 'VK' && (
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('vkAccessToken')}</label>
+              <input
+                value={vkAccessToken}
+                onChange={(e) => setVkAccessToken(e.target.value)}
+                className="w-full border rounded px-3 py-2"
+                placeholder="vk1.a.AbCdEf..."
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">{t('vkHint')}</p>
             </div>
           )}
           <div className="flex gap-2">
@@ -495,7 +538,17 @@ export default function ChannelsPage() {
                       </button>
                     </>
                   )}
-                  {(c.type === 'TELEGRAM' || c.type === 'WHATSAPP' || c.type === 'DISCORD' || c.type === 'SLACK') && (
+                  {c.type === 'VK' && (
+                    <>
+                      <button onClick={() => initializeVK(c.id)} className="text-brand hover:underline">
+                        {t('initializeVK')}
+                      </button>
+                      <button onClick={() => getVKStatus(c.id)} className="text-blue-600 hover:underline">
+                        {t('vkStatus')}
+                      </button>
+                    </>
+                  )}
+                  {(c.type === 'TELEGRAM' || c.type === 'WHATSAPP' || c.type === 'DISCORD' || c.type === 'SLACK' || c.type === 'VK') && (
                     <button onClick={() => openTest(c.id)} className="text-purple-600 hover:underline">
                       {t('testMessages')}
                     </button>
