@@ -16,6 +16,12 @@ export default function ChannelsPage() {
   const [apiHash, setApiHash] = useState('');
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [waStatus, setWaStatus] = useState<string>('');
+  
+  // Тестирование сообщений
+  const [testChannelId, setTestChannelId] = useState<string | null>(null);
+  const [testMessages, setTestMessages] = useState<any[]>([]);
+  const [testRecipient, setTestRecipient] = useState('');
+  const [testText, setTestText] = useState('');
 
   const load = () => api.get('/channels').then((r) => setChannels(r.data)).catch(() => {});
   useEffect(() => {
@@ -139,6 +145,65 @@ export default function ChannelsPage() {
       await api.post(`/telegram-user/channels/${id}/password`, { password });
       alert(t('saved'));
       setTimeout(() => getTgUserStatus(id), 2000);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error');
+    }
+  };
+
+  // Тестирование сообщений
+  const openTest = async (channelId: string) => {
+    setTestChannelId(channelId);
+    setTestRecipient('');
+    setTestText('');
+    await loadTestMessages(channelId);
+  };
+
+  const closeTest = () => {
+    setTestChannelId(null);
+    setTestMessages([]);
+    setTestRecipient('');
+    setTestText('');
+  };
+
+  const loadTestMessages = async (channelId: string) => {
+    try {
+      const res = await api.get(`/messages?channelId=${channelId}`);
+      setTestMessages(res.data.slice(0, 10)); // последние 10
+    } catch (err: any) {
+      console.error('Error loading test messages:', err);
+    }
+  };
+
+  const sendTestMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testChannelId || !testText.trim()) return;
+
+    const channel = channels.find((c) => c.id === testChannelId);
+    if (!channel) return;
+
+    try {
+      if (channel.type === 'TELEGRAM' && !isTgUser(channel)) {
+        // Telegram Bot
+        await api.post(`/telegram/channels/${testChannelId}/send`, {
+          chatId: testRecipient,
+          text: testText,
+        });
+      } else if (isTgUser(channel)) {
+        // Telegram User (QR)
+        await api.post(`/telegram-user/channels/${testChannelId}/send`, {
+          peer: testRecipient,
+          text: testText,
+        });
+      } else if (channel.type === 'WHATSAPP') {
+        // WhatsApp
+        await api.post(`/whatsapp/channels/${testChannelId}/send`, {
+          to: testRecipient,
+          text: testText,
+        });
+      }
+      alert(t('messageSent'));
+      setTestText('');
+      await loadTestMessages(testChannelId);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Error');
     }
@@ -302,6 +367,11 @@ export default function ChannelsPage() {
                       </button>
                     </>
                   )}
+                  {(c.type === 'TELEGRAM' || c.type === 'WHATSAPP') && (
+                    <button onClick={() => openTest(c.id)} className="text-purple-600 hover:underline">
+                      {t('testMessages')}
+                    </button>
+                  )}
                   <button onClick={() => remove(c.id)} className="text-red-600 hover:underline">
                     {t('delete')}
                   </button>
@@ -311,6 +381,90 @@ export default function ChannelsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Модальное окно тестирования сообщений */}
+      {testChannelId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">{t('testMessages')}</h2>
+              <button onClick={closeTest} className="text-gray-400 hover:text-gray-600 text-2xl">
+                &times;
+              </button>
+            </div>
+
+            {/* История сообщений */}
+            <div className="flex-1 overflow-y-auto mb-4 border rounded p-3 bg-gray-50 space-y-2 min-h-[200px] max-h-[400px]">
+              {testMessages.length === 0 && (
+                <p className="text-center text-gray-400 py-4">{t('noMessages')}</p>
+              )}
+              {testMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`p-3 rounded ${
+                    msg.direction === 'OUTBOUND' ? 'bg-blue-100 ml-8' : 'bg-white mr-8'
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-1">
+                    <span className="text-xs font-semibold text-gray-600">
+                      {msg.direction === 'OUTBOUND' ? t('outbound') : t('inbound')}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {new Date(msg.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  {msg.sender && (
+                    <div className="text-xs text-gray-500 mb-1">
+                      {t('from')}: {msg.sender}
+                    </div>
+                  )}
+                  <div className="text-sm">{msg.text}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Форма отправки */}
+            <form onSubmit={sendTestMessage} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('recipient')}</label>
+                <input
+                  value={testRecipient}
+                  onChange={(e) => setTestRecipient(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm"
+                  placeholder={t('recipientPlaceholder')}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('message')}</label>
+                <textarea
+                  value={testText}
+                  onChange={(e) => setTestText(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm"
+                  rows={3}
+                  placeholder={t('messageText')}
+                  required
+                />
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" className="bg-brand text-white px-4 py-2 rounded hover:bg-brand-dark">
+                  {t('send')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadTestMessages(testChannelId)}
+                  className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300"
+                >
+                  {t('refresh')}
+                </button>
+                <button type="button" onClick={closeTest} className="px-4 py-2 rounded border">
+                  {t('cancel')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
