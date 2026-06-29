@@ -219,6 +219,70 @@ POST /api/whatsapp/channels/channel-uuid-123/send
 
 ---
 
+## Интеграция Telegram (QR / пользовательский аккаунт) через API
+
+Режим работает через **MTProto** (библиотека GramJS) — это полноценный клиент Telegram с авторизацией
+по QR-коду, без регистрации бота. Подходит, когда нужно вести переписку от лица реального аккаунта.
+
+### 1. Получение API ID / API Hash
+
+Каждый пользователь получает свои ключи на [my.telegram.org](https://my.telegram.org) →
+**API development tools**. Эти `api_id` и `api_hash` указываются в настройках канала
+(каждый пользователь настраивает под свой аккаунт).
+
+### 2. Создание канала и авторизация
+
+```bash
+# Создать канал (тип TELEGRAM, режим userbot)
+POST /api/channels
+{
+  "name": "Telegram QR Support",
+  "type": "TELEGRAM",
+  "config": { "mode": "userbot", "apiId": 1234567, "apiHash": "0123456789abcdef0123456789abcdef" }
+}
+
+# Инициализировать клиент
+POST /api/telegram-user/channels/{channelId}/initialize
+
+# Получить QR-код (data URL PNG)
+GET /api/telegram-user/channels/{channelId}/qr
+```
+
+Отсканируйте QR-код в Telegram: **Настройки → Устройства → Подключить устройство**.
+Если включён облачный пароль (2FA), передайте его:
+
+```bash
+POST /api/telegram-user/channels/{channelId}/password
+{ "password": "my-2fa-password" }
+```
+
+### 3. Отправка сообщений
+
+```bash
+POST /api/telegram-user/channels/{channelId}/send
+{
+  "peer": "@username",
+  "text": "Здравствуйте! Чем можем помочь?"
+}
+```
+
+### 4. Приём входящих сообщений
+
+Входящие сообщения автоматически сохраняются в БД и отправляются на вебхуки с событием
+`message.received`. Структура полностью совпадает с другими каналами (`channelType: "TELEGRAM"`).
+
+### 5. Автоматизация через n8n / Make
+
+1. Webhook Trigger → получение событий `message.received`
+2. Фильтр по `data.channelType === 'TELEGRAM'`
+3. HTTP Request → ответ через `/api/telegram-user/channels/{id}/send`
+
+> ⚠️ **Важно:** Строка сессии сохраняется в БД (`config.session` канала) — авторизация переживает
+> перезапуск. Автоматизация пользовательского аккаунта формально нарушает ToS Telegram: избегайте
+> массовых рассылок и спама, иначе аккаунт может быть заблокирован.
+
+---
+
 ## Добавление новых каналов (для разработчиков)
 
 Архитектура модульная. Чтобы добавить канал (например, VK или MAX):

@@ -140,6 +140,72 @@ Authorization: Bearer <JWT-токен>
 
 ---
 
+## Telegram (пользовательский аккаунт / QR) 🔒
+
+Интеграция через **MTProto** (библиотека GramJS) — работает как обычный клиент Telegram, авторизация
+по QR-коду (как «Войти по QR» в приложении). Требует `apiId` и `apiHash`, полученных на
+[my.telegram.org](https://my.telegram.org). Канал создаётся с типом `TELEGRAM` и конфигом
+`{ "mode": "userbot", "apiId": 1234567, "apiHash": "..." }`.
+
+### POST `/telegram-user/channels/{id}/initialize`
+Инициализировать Telegram-клиент. Если валидная сессия уже сохранена — восстанавливает её,
+иначе запускает QR-логин.
+**Ответ:**
+```json
+{ "success": true, "message": "Клиент инициализируется. Используйте /qr для получения QR-кода." }
+```
+
+### GET `/telegram-user/channels/{id}/qr`
+Получить QR-код. Отсканируйте его в Telegram: **Настройки → Устройства → Подключить устройство**.
+**Ответ:**
+```json
+{
+  "qr": "data:image/png;base64,...",  // QR-код в формате data URL (если ещё не авторизован)
+  "status": "WAITING_QR"              // WAITING_QR | CONNECTED | INITIALIZING | NEEDS_PASSWORD | ERROR | NOT_INITIALIZED
+}
+```
+
+### GET `/telegram-user/channels/{id}/status`
+Получить текущий статус клиента.
+**Ответ:**
+```json
+{
+  "status": "CONNECTED",
+  "info": { "id": "123456789", "username": "user", "phone": "79001234567", "firstName": "Имя" }
+}
+```
+
+### POST `/telegram-user/channels/{id}/password`
+Передать пароль двухфакторной аутентификации (2FA), если он запрошен при авторизации (статус `NEEDS_PASSWORD`).
+```json
+{ "password": "my-2fa-password" }
+```
+**Ответ:**
+```json
+{ "success": true, "message": "Пароль принят, продолжаем авторизацию" }
+```
+
+### POST `/telegram-user/channels/{id}/send`
+Отправить сообщение через пользовательский аккаунт.
+```json
+{
+  "peer": "@username",          // @username, +79001234567, числовой ID или "me"
+  "text": "Здравствуйте!"
+}
+```
+**Ответ:**
+```json
+{ "success": true, "messageId": 12345 }
+```
+
+### POST `/telegram-user/channels/{id}/stop`
+Остановить клиент (отключить сессию).
+```json
+{ "success": true, "message": "Клиент остановлен" }
+```
+
+---
+
 ## Веб-формы
 
 ### POST `/webforms/{channelId}/submit`

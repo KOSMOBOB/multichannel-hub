@@ -39,6 +39,17 @@ export class ChannelsService {
     });
   }
 
+  // Сохранить/обновить config канала, объединяя с существующими значениями.
+  // Используется, например, для сохранения строки сессии Telegram (userbot) после QR-логина.
+  async mergeConfig(id: string, patch: Record<string, any>) {
+    const channel = await this.findOne(id);
+    const currentConfig = (channel.config as Record<string, any>) ?? {};
+    return this.prisma.channel.update({
+      where: { id },
+      data: { config: { ...currentConfig, ...patch } },
+    });
+  }
+
   async update(id: string, dto: UpdateChannelDto) {
     await this.findOne(id);
     return this.prisma.channel.update({ where: { id }, data: dto });
