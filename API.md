@@ -90,6 +90,56 @@ Authorization: Bearer <JWT-токен>
 
 ---
 
+## WhatsApp 🔒
+
+### POST `/whatsapp/channels/{id}/initialize`
+Инициализировать WhatsApp клиент для канала. После вызова клиент начнёт генерировать QR-код.
+**Ответ:**
+```json
+{ "success": true, "message": "Клиент инициализируется. Используйте /qr для получения QR-кода." }
+```
+
+### GET `/whatsapp/channels/{id}/qr`
+Получить QR-код для авторизации WhatsApp канала. Отсканируйте его в WhatsApp: **Настройки → Связанные устройства → Привязать устройство**.
+**Ответ:**
+```json
+{
+  "qr": "data:image/png;base64,...",  // QR-код в формате data URL (если ещё не авторизован)
+  "status": "WAITING_QR"              // Статус: WAITING_QR | CONNECTED | INITIALIZING | NOT_INITIALIZED
+}
+```
+
+### GET `/whatsapp/channels/{id}/status`
+Получить текущий статус WhatsApp клиента.
+**Ответ:**
+```json
+{
+  "status": "CONNECTED",
+  "info": { ... }  // Информация о подключённом аккаунте (если доступна)
+}
+```
+
+### POST `/whatsapp/channels/{id}/send`
+Отправить сообщение через WhatsApp.
+```json
+{
+  "phoneNumber": "79001234567@c.us",  // формат: countryCode+number@c.us
+  "text": "Здравствуйте!"
+}
+```
+**Ответ:**
+```json
+{ "success": true, "messageId": "..." }
+```
+
+### POST `/whatsapp/channels/{id}/stop`
+Остановить WhatsApp клиент для канала (отключить сессию).
+```json
+{ "success": true, "message": "Клиент остановлен" }
+```
+
+---
+
 ## Веб-формы
 
 ### POST `/webforms/{channelId}/submit`

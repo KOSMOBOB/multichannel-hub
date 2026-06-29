@@ -130,13 +130,104 @@ function verify(rawBody, signature, secret) {
 
 ---
 
+## Интеграция WhatsApp через API
+
+WhatsApp работает через библиотеку **whatsapp-web.js** — неофициальный бесплатный API.
+Авторизация происходит через QR-код (как при подключении связанного устройства).
+
+### 1. Создание и авторизация канала
+
+```bash
+# Создать канал WhatsApp
+POST /api/channels
+{
+  "name": "WhatsApp Support",
+  "type": "WHATSAPP",
+  "config": {}
+}
+# Ответ: { "id": "channel-uuid-123", ... }
+
+# Инициализировать клиент
+POST /api/whatsapp/channels/channel-uuid-123/initialize
+
+# Получить QR-код для сканирования
+GET /api/whatsapp/channels/channel-uuid-123/qr
+# Ответ: { "qr": "data:image/png;base64,...", "status": "WAITING_QR" }
+```
+
+Отсканируйте QR-код в приложении WhatsApp:
+**Настройки → Связанные устройства → Привязать устройство**.
+
+### 2. Проверка статуса подключения
+
+```bash
+GET /api/whatsapp/channels/channel-uuid-123/status
+# Ответ: { "status": "CONNECTED", "info": { ... } }
+```
+
+### 3. Отправка сообщений
+
+```bash
+POST /api/whatsapp/channels/channel-uuid-123/send
+{
+  "phoneNumber": "79001234567@c.us",
+  "text": "Здравствуйте! Спасибо за обращение."
+}
+```
+
+**Формат номера:** `[countryCode][number]@c.us` (например, `79001234567@c.us` для России).
+
+### 4. Приём входящих сообщений
+
+Входящие сообщения из WhatsApp автоматически:
+- Сохраняются в базу данных (таблица `messages`)
+- Доступны в API `/api/messages`
+- Отправляются на все активные вебхуки с событием `message.received`
+
+Пример вебхука:
+```json
+{
+  "event": "message.received",
+  "timestamp": "2026-06-29T12:00:00Z",
+  "data": {
+    "id": "msg-uuid",
+    "channelId": "channel-uuid-123",
+    "channelType": "WHATSAPP",
+    "direction": "INBOUND",
+    "senderId": "79001234567@c.us",
+    "senderName": "Иван Иванов",
+    "text": "Привет! Как дела?",
+    "payload": { ... }
+  }
+}
+```
+
+### 5. Автоматизация через n8n / Make
+
+**n8n пример:**
+1. Webhook Trigger → получение событий `message.received` от Multichannel Hub
+2. Switch Node → фильтрация по `data.channelType === 'WHATSAPP'`
+3. HTTP Request → отправка ответа через `/api/whatsapp/channels/{id}/send`
+
+**Make пример:**
+1. Custom Webhook → подписка на события Multichannel Hub
+2. Router → фильтр по типу канала
+3. HTTP Module → отправка сообщения в WhatsApp через API
+
+> ⚠️ **Важно:** Сессии WhatsApp сохраняются в папке `whatsapp-sessions/`. При использовании Docker
+> рекомендуется монтировать эту папку как volume, чтобы не терять авторизацию при перезапуске контейнера.
+
+---
+
 ## Добавление новых каналов (для разработчиков)
 
-Архитектура модульная. Чтобы добавить канал (например, WhatsApp или VK):
+Архитектура модульная. Чтобы добавить канал (например, VK или MAX):
 
 1. Добавьте значение в enum `ChannelType` в `backend/prisma/schema.prisma` и создайте миграцию.
-2. Создайте новый модуль в `backend/src/<channel>/` по образцу `telegram/`.
+2. Создайте новый модуль в `backend/src/<channel>/` по образцу `telegram/` или `whatsapp/`.
 3. Реализуйте приём входящих сообщений через `MessagesService.createInbound(...)` —
    это автоматически запустит доставку в вебхуки.
 4. При необходимости добавьте тип канала в форму создания на фронтенде
    (`frontend/src/app/(panel)/channels/page.tsx`).
+
+Подробнее см. [`AGENTS.md`](./AGENTS.md) — руководство для разработчиков и AI-агентов.

@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ChannelsModule } from './channels/channels.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { WebformsModule } from './webforms/webforms.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { MessagesModule } from './messages/messages.module';
@@ -29,6 +30,7 @@ import { SettingsModule } from './settings/settings.module';
     UsersModule,
     ChannelsModule,
     TelegramModule,
+    WhatsappModule,
     WebformsModule,
     WebhooksModule,
     MessagesModule,

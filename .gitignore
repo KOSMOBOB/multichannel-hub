@@ -17,6 +17,10 @@ dist/
 # Prisma
 backend/prisma/*.db
 
+# WhatsApp сессии
+whatsapp-sessions/
+**/whatsapp-sessions/
+
 # Логи
 *.log
 npm-debug.log*

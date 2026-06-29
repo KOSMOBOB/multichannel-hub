@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useLang } from '@/lib/LangContext';
 
-// Управление каналами: список, добавление Telegram-ботов и веб-форм
+// Управление каналами: список, добавление Telegram-ботов, WhatsApp и веб-форм
 export default function ChannelsPage() {
   const { t } = useLang();
   const [channels, setChannels] = useState<any[]>([]);
@@ -12,6 +12,8 @@ export default function ChannelsPage() {
   const [name, setName] = useState('');
   const [type, setType] = useState('TELEGRAM');
   const [token, setToken] = useState('');
+  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [waStatus, setWaStatus] = useState<string>('');
 
   const load = () => api.get('/channels').then((r) => setChannels(r.data)).catch(() => {});
   useEffect(() => {
@@ -38,6 +40,40 @@ export default function ChannelsPage() {
     if (!publicUrl) return;
     await api.post(`/telegram/channels/${id}/set-webhook`, { publicUrl });
     alert(t('saved'));
+  };
+
+  const initializeWhatsApp = async (id: string) => {
+    try {
+      await api.post(`/whatsapp/channels/${id}/initialize`);
+      alert(t('saved'));
+      setTimeout(() => getWhatsAppQR(id), 2000);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error');
+    }
+  };
+
+  const getWhatsAppQR = async (id: string) => {
+    try {
+      const res = await api.get(`/whatsapp/channels/${id}/qr`);
+      setQrCode(res.data.qr || null);
+      setWaStatus(res.data.status || '');
+      if (res.data.qr) {
+        alert(t('scanQR'));
+      } else {
+        alert(t('waStatus') + ': ' + res.data.status);
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error');
+    }
+  };
+
+  const getWhatsAppStatus = async (id: string) => {
+    try {
+      const res = await api.get(`/whatsapp/channels/${id}/status`);
+      alert(t('waStatus') + ': ' + res.data.status);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Error');
+    }
   };
 
   return (
@@ -71,6 +107,7 @@ export default function ChannelsPage() {
               className="w-full border rounded px-3 py-2"
             >
               <option value="TELEGRAM">Telegram</option>
+              <option value="WHATSAPP">WhatsApp</option>
               <option value="WEBFORM">Web Form</option>
             </select>
           </div>
@@ -94,6 +131,22 @@ export default function ChannelsPage() {
             </button>
           </div>
         </form>
+      )}
+
+      {qrCode && (
+        <div className="bg-white rounded-xl shadow p-6 mb-6">
+          <h3 className="text-lg font-bold mb-3">{t('scanQR')}</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            {t('waStatus')}: {waStatus}
+          </p>
+          <img src={qrCode} alt="WhatsApp QR Code" className="border p-2" />
+          <button
+            onClick={() => setQrCode(null)}
+            className="mt-4 bg-gray-200 px-4 py-2 rounded hover:bg-gray-300"
+          >
+            {t('cancel')}
+          </button>
+        </div>
       )}
 
       <div className="bg-white rounded-xl shadow overflow-hidden">
@@ -128,6 +181,19 @@ export default function ChannelsPage() {
                     <button onClick={() => setWebhook(c.id)} className="text-brand hover:underline">
                       {t('setWebhookTg')}
                     </button>
+                  )}
+                  {c.type === 'WHATSAPP' && (
+                    <>
+                      <button onClick={() => initializeWhatsApp(c.id)} className="text-brand hover:underline">
+                        {t('initializeWA')}
+                      </button>
+                      <button onClick={() => getWhatsAppQR(c.id)} className="text-green-600 hover:underline">
+                        {t('getQR')}
+                      </button>
+                      <button onClick={() => getWhatsAppStatus(c.id)} className="text-blue-600 hover:underline">
+                        {t('waStatus')}
+                      </button>
+                    </>
                   )}
                   <button onClick={() => remove(c.id)} className="text-red-600 hover:underline">
                     {t('delete')}
